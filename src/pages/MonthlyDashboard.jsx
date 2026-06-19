@@ -39,6 +39,7 @@ export function MonthlyDashboard({ data, updateSettings, toggleDailyHabit, toggl
             data={data} 
             settings={data.settings} 
             toggleWeeklyHabit={toggleWeeklyHabit} 
+            addHabit={addHabit}
           />
         </div>
         

@@ -2,15 +2,67 @@ import React, { useState } from 'react';
 import { GlassCard } from '../components/ui/GlassCard';
 import { NeonButton } from '../components/ui/NeonButton';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { auth } from '../firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import toast from 'react-hot-toast';
 
 export function LoginPage({ onLogin, theme, toggleTheme }) {
+  const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (username.trim()) {
-      onLogin(username);
+    setError('');
+
+    if (!isLogin) {
+      if (!username.trim()) {
+        setError('Username is required for sign up.');
+        return;
+      }
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters long.');
+        return;
+      }
+      if (!/[^A-Za-z0-9]/.test(password)) {
+        setError('Password must contain at least 1 unique (special) character.');
+        return;
+      }
+    }
+
+    try {
+      if (isLogin) {
+        // We use 'email' for login now, let's treat the username field as email if 'email' is empty.
+        const loginEmail = email || username; // basic fallback
+        await signInWithEmailAndPassword(auth, loginEmail, password);
+        toast.success('Welcome back!');
+      } else {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: username });
+        toast.success('Welcome!');
+        if (onLogin) onLogin(username);
+      }
+    } catch (err) {
+      console.error(err);
+      let errorMessage = err.message || 'An error occurred during authentication.';
+      
+      if (err.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already awakened (in use).';
+        toast.error('You are already Awakened! Please Login.');
+        setIsLogin(true); // Switch to login
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        if (isLogin) {
+          toast.error('Hunter not found or invalid credentials. Please Awaken (Sign Up) first!');
+          setIsLogin(false); // Switch to signup
+        }
+        errorMessage = 'Invalid credentials. Please try again.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak.';
+      }
+      
+      setError(errorMessage);
     }
   };
 
@@ -55,21 +107,45 @@ export function LoginPage({ onLogin, theme, toggleTheme }) {
         <GlassCard className="!bg-white/40 dark:!bg-[var(--color-surface-dark)] !border-white/50 dark:!border-slate-700 p-8 shadow-2xl backdrop-blur-2xl">
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
 
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/50 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm text-center font-bold animate-in fade-in">
+                {error}
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-widest">
-                Username
+                {isLogin ? "Email or Username" : "Username"}
               </label>
               <input
-                type="text"
+                type={isLogin ? "text" : "text"}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-white/50 dark:bg-slate-950/50 border border-white/60 dark:border-slate-700 rounded-lg px-4 py-3 text-slate-900 dark:text-white
                            focus:outline-none focus:border-white focus:ring-1 focus:ring-white dark:focus:border-cyan-500 dark:focus:ring-cyan-500
                            transition-all placeholder:text-slate-500 dark:placeholder:text-slate-600"
-                placeholder="Enter your name"
+                placeholder={isLogin ? "hunter@gmail.com" : "Enter your name"}
                 required
               />
             </div>
+
+            {!isLogin && (
+              <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-widest">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-white/50 dark:bg-slate-950/50 border border-white/60 dark:border-slate-700 rounded-lg px-4 py-3 text-slate-900 dark:text-white
+                             focus:outline-none focus:border-white focus:ring-1 focus:ring-white dark:focus:border-cyan-500 dark:focus:ring-cyan-500
+                             transition-all placeholder:text-slate-500 dark:placeholder:text-slate-600"
+                  placeholder="hunter@gmail.com"
+                  required={!isLogin}
+                />
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-widest">
@@ -87,11 +163,11 @@ export function LoginPage({ onLogin, theme, toggleTheme }) {
               />
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4 flex flex-col gap-4">
               {/* Dark mode button */}
               <div className="hidden dark:block w-full">
                 <NeonButton type="submit" fullWidth color="#22d3ee">
-                  ENTER THE GATE
+                  {isLogin ? 'ENTER THE GATE' : 'AWAKEN (SIGN UP)'}
                 </NeonButton>
               </div>
 
@@ -102,7 +178,18 @@ export function LoginPage({ onLogin, theme, toggleTheme }) {
                            hover:bg-slate-50 transition-all shadow-[0_4px_14px_rgba(0,0,0,0.05)]
                            dark:hidden"
               >
-                ENTER THE GATE
+                {isLogin ? 'ENTER THE GATE' : 'AWAKEN (SIGN UP)'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setError('');
+                }}
+                className="text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-cyan-400 transition-colors text-center"
+              >
+                {isLogin ? "New Hunter? Sign Up" : "Already Awakened? Login"}
               </button>
             </div>
           </form>

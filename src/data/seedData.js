@@ -1,6 +1,31 @@
 import { defaultDailyHabits, defaultWeeklyHabits } from './defaultHabits';
 import { getDaysInMonth, formatDateKey } from '../utils/dateUtils';
 
+export function generateEmptyUserData(year = 2026) {
+  const today = new Date();
+  const currentMonth = today.getFullYear() === year ? today.getMonth() + 1 : 12;
+  
+  return {
+    user: {
+      id: 'user_001',
+      name: 'Hunter',
+      avatarUrl: null,
+      createdAt: `${year}-01-01`,
+    },
+    settings: {
+      theme: 'dark',
+      currentYear: year,
+      currentMonth: currentMonth,
+    },
+    dailyHabits: [],
+    weeklyHabits: [],
+    dailyLog: {},
+    weeklyLog: {},
+    healthMetrics: {},
+    notes: {},
+  };
+}
+
 /**
  * Generates realistic demo data for a full year.
  * This seeds the app on first load so users see a populated dashboard.

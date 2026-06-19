@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { GlassCard } from '../ui/GlassCard';
 import { CircularProgress } from '../ui/CircularProgress';
 import { ProgressBar } from '../ui/ProgressBar';
-import { defaultWeeklyHabitAssignments } from '../../data/defaultHabits';
+import { defaultWeeklyHabitAssignments, defaultWeeklyHabits } from '../../data/defaultHabits';
 import { calcWeeklyHabitsCompletion } from '../../utils/statsCalculator';
+import { Plus, Check, X } from 'lucide-react';
 
-export function WeeklyHabitsGrid({ data, settings, toggleWeeklyHabit }) {
+export function WeeklyHabitsGrid({ data, settings, toggleWeeklyHabit, addHabit }) {
+  const [addingWeek, setAddingWeek] = useState(null);
+  const [newHabitName, setNewHabitName] = useState('');
   const { currentYear, currentMonth } = settings;
   const { weeklyHabits, weeklyLog } = data;
 
@@ -45,7 +48,12 @@ export function WeeklyHabitsGrid({ data, settings, toggleWeeklyHabit }) {
             const weekKey = `${monthKey}-W${w}`;
             // Get habits assigned to this week
             const assignedIds = defaultWeeklyHabitAssignments[`W${w}`] || [];
-            const assignedHabits = assignedIds.map(id => weeklyHabits.find(h => h.id === id)).filter(Boolean);
+            const assignedFromDefaults = assignedIds.map(id => weeklyHabits.find(h => h.id === id)).filter(Boolean);
+            const customHabits = weeklyHabits.filter(h => {
+              if (defaultWeeklyHabits.find(dh => dh.id === h.id)) return false;
+              return h.assignedWeek === `W${w}` || !h.assignedWeek;
+            });
+            const assignedHabits = [...assignedFromDefaults, ...customHabits];
             
             // Calculate progress for this week column
             const weekCompleted = assignedHabits.filter(h => weeklyLog[weekKey]?.[h.id]).length;
@@ -60,10 +68,16 @@ export function WeeklyHabitsGrid({ data, settings, toggleWeeklyHabit }) {
               >
                 {/* Column Header */}
                 <div 
-                  className="py-2 text-center text-xs font-bold tracking-widest border-b border-slate-200/50 dark:border-slate-800/50 bg-white/10 dark:bg-transparent"
+                  className="py-2 px-2 flex justify-between items-center border-b border-slate-200/50 dark:border-slate-800/50 bg-white/10 dark:bg-transparent"
                   style={{ color }}
                 >
-                  WEEK {w}
+                  <span className="text-xs font-bold tracking-widest uppercase">WEEK {w}</span>
+                  <button 
+                    onClick={() => setAddingWeek(w)}
+                    className="opacity-50 hover:opacity-100 transition-opacity"
+                  >
+                    <Plus size={14} />
+                  </button>
                 </div>
                 
                 {/* Tasks List */}
@@ -88,6 +102,50 @@ export function WeeklyHabitsGrid({ data, settings, toggleWeeklyHabit }) {
                       </label>
                     );
                   })}
+                  
+                  {addingWeek === w && (
+                    <div className="flex items-center gap-1 mt-2">
+                      <input
+                        type="text"
+                        value={newHabitName}
+                        onChange={(e) => setNewHabitName(e.target.value)}
+                        placeholder="Goal..."
+                        className="flex-1 bg-transparent text-xs text-slate-700 dark:text-slate-300 border-b border-cyan-500 focus:outline-none w-full min-w-0"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newHabitName.trim()) {
+                            addHabit(newHabitName.trim(), color, 'weekly', `W${w}`);
+                            setNewHabitName('');
+                            setAddingWeek(null);
+                          } else if (e.key === 'Escape') {
+                            setAddingWeek(null);
+                            setNewHabitName('');
+                          }
+                        }}
+                      />
+                      <button 
+                        onClick={() => {
+                          if (newHabitName.trim()) {
+                            addHabit(newHabitName.trim(), color, 'weekly', `W${w}`);
+                          }
+                          setNewHabitName('');
+                          setAddingWeek(null);
+                        }}
+                        className="text-emerald-500 hover:text-emerald-600 shrink-0 p-1"
+                      >
+                        <Check size={12} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setAddingWeek(null);
+                          setNewHabitName('');
+                        }}
+                        className="text-slate-400 hover:text-red-500 shrink-0 p-1"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Bottom Progress Bar */}
